@@ -8,9 +8,11 @@ import cz.warewolf.components.net.IUDPClientConnection;
 import cz.warewolf.components.net.IUDPServerCallback;
 import cz.warewolf.components.net.TCPServer;
 import cz.warewolf.components.net.UDPServer;
+import cz.warewolf.components.rtsp.server.protocol.RTSPRequest;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -47,83 +49,163 @@ public class RTSPServer implements IRTSPServer {
         tcpCallback = new ITCPServerCallback() {
             @Override
             public void onClientConnected(ITCPClientConnection client) {
-
+                log.info("TCP Client " + client + " connected");
             }
 
             @Override
             public void onDataReceived(ITCPClientConnection client, byte[] data, int dataLength) {
-
+                log.info("TCP Client sent data: " + new String(data));
+                RTSPRequest request = RTSPRequest.parse(new String(data));
+                log.info("TCP Client parsed request: " + request);
+                try {
+                    String response = "";
+                    if (request.getType() != null) {
+                        switch (request.getType()) {
+                            case OPTIONS:
+                                response = "RTSP/1.0 200 OK\r\n" +
+                                        "Cseq: " + request.getHeader("CSeq") + "\r\n" +
+                                        "Public: DESCRIBE, SETUP, TEARDOWN, PLAY, PAUSE\r\n" +
+                                        "\r\n";
+                                break;
+                            case DESCRIBE:
+                                response = "RTSP/1.0 200 OK\r\n" +
+                                        "Cseq: " + request.getHeader("CSeq") + "\r\n" +
+                                        "Content-Type: application/sdp\r\n" +
+                                        "Content-Length: 460\r\n" +
+                                        "\r\n\r\n" +
+                                        "m=video 0 RTP/AVP 96\r\n" +
+                                        "a=control:streamid=0\r\n" +
+                                        "a=range:npt=0-7.741000\r\n" +
+                                        "a=length:npt=7.741000\r\n" +
+                                        "a=rtpmap:96 MP4V-ES/5544\r\n" +
+                                        "a=mimetype:string;\"video/MP4V-ES\"\r\n" +
+                                        "a=AvgBitRate:integer;304018\r\n" +
+                                        "a=StreamName:string;\"hinted video track\"\r\n" +
+                                        "m=audio 0 RTP/AVP 97\r\n" +
+                                        "a=control:streamid=1\r\n" +
+                                        "a=range:npt=0-7.712000\r\n" +
+                                        "a=length:npt=7.712000\r\n" +
+                                        "a=rtpmap:97 mpeg4-generic/32000/2\r\n" +
+                                        "a=mimetype:string;\"audio/mpeg4-generic\"\r\n" +
+                                        "a=AvgBitRate:integer;65790\r\n" +
+                                        "a=StreamName:string;\"hinted audio track\"\r\n\r\n";
+                                break;
+                            case SETUP:
+                                response = "RTSP/1.0 200 OK\r\n" +
+                                        "Cseq: " + request.getHeader("CSeq") + "\r\n" +
+                                        "Transport: " + request.getHeader("Transport") + ";server_port=9000-9001;ssrc=1234ABCD\r\n" +
+                                        "Session: 12345678\r\n\r\n";
+                                break;
+                            case PLAY:
+                                response = "RTSP/1.0 200 OK\r\n" +
+                                        "Cseq: " + request.getHeader("CSeq") + "\r\n" +
+                                        "Session: " + request.getHeader("Session") + "\r\n" +
+                                        "RTP-Info: url=rtsp://example.com/media.mp4/streamid=0;seq=9810092;rtptime=3450012\r\n\r\n";
+                                break;
+                            case PAUSE:
+                                response = "RTSP/1.0 200 OK\r\n" +
+                                        "Cseq: " + request.getHeader("CSeq") + "\r\n" +
+                                        "Session: " + request.getHeader("Session") + "\r\n\r\n";
+                                break;
+                            case TEARDOWN:
+                                response = "RTSP/1.0 200 OK\r\n" +
+                                        "Cseq: " + request.getHeader("CSeq") + "\r\n\r\n";
+                                break;
+                            case ANNOUNCE:
+                                response = "RTSP/1.0 200 OK\r\n" +
+                                        "Cseq: " + request.getHeader("CSeq") + "\r\n\r\n";
+                                break;
+                            case RECORD:
+                                response = "RTSP/1.0 200 OK\r\n" +
+                                        "Cseq: " + request.getHeader("CSeq") + "\r\n" +
+                                        "Session: " + request.getHeader("Session") + "\r\n\r\n";
+                                break;
+                            case GET_PARAMETER:
+                                response = "RTSP/1.0 200 OK\r\n" +
+                                        "Cseq: " + request.getHeader("CSeq") + "\r\n\r\n";
+                                break;
+                            case SET_PARAMETER:
+                                response = "RTSP/1.0 200 OK\r\n" +
+                                        "Cseq: " + request.getHeader("CSeq") + "\r\n\r\n";
+                                break;
+                        }
+                        client.write(response.getBytes());
+                    }
+                } catch (IOException e) {
+                    log.error("TCP Client write error", e);
+                }
             }
 
             @Override
             public void onError(ITCPClientConnection client, Throwable throwable) {
-
+                log.error("TCP Client " + client + " error: ", throwable);
             }
 
             @Override
             public void onClientDisconnected(ITCPClientConnection client) {
-
+                log.info("TCP Client " + client + " disconnected");
             }
 
             @Override
             public void onBeforeStart() {
+                log.info("TCP Server starting");
                 tcpRunning = true;
             }
 
             @Override
             public void onBeforeStop() {
+                log.info("TCP Server stopping");
                 tcpRunning = false;
             }
         };
 
         udpCallback = new IUDPServerCallback() {
             @Override
-            public void onClientConnected(IUDPClientConnection iudpClientConnection) {
-
+            public void onClientConnected(IUDPClientConnection udpClientConnection) {
+                log.info("UDP Client " + udpClientConnection + " connected");
             }
 
             @Override
-            public void onDataReceived(IUDPClientConnection iudpClientConnection, byte[] bytes, int i) {
-
+            public void onDataReceived(IUDPClientConnection udpClientConnection, byte[] data, int i) {
+                log.info("UDP Client " + udpClientConnection + " sent data: " + new String(data));
             }
 
             @Override
-            public void onError(IUDPClientConnection iudpClientConnection, Throwable throwable) {
-
+            public void onError(IUDPClientConnection udpClientConnection, Throwable throwable) {
+                log.error("UDP Client " + udpClientConnection + " error: ", throwable);
             }
 
             @Override
-            public void onClientDisconnected(IUDPClientConnection iudpClientConnection) {
-
+            public void onClientDisconnected(IUDPClientConnection udpClientConnection) {
+                log.info("UDP Client " + udpClientConnection + " disconnected");
             }
 
             @Override
             public void onBeforeStart() {
+                log.info("UDP Server starting");
                 udpRunning = true;
             }
 
             @Override
             public void onBeforeStop() {
+                log.info("UDP Server stopping");
                 udpRunning = false;
             }
         };
 
-        this.mRunnable = new Runnable() {
-            @Override
-            public void run() {
-                Thread.currentThread().setName(this.getClass().getSimpleName() + "-" + Thread.currentThread().getId());
+        this.mRunnable = () -> {
+            Thread.currentThread().setName(RTSPServer.this.getClass().getSimpleName() + "-" + Thread.currentThread().getId());
 
 
-                try {
-                    tcpServer = new TCPServer(serverAddress, tcpPort, tcpCallback);
-                    tcpServer.startServer();
-                    udpServer = new UDPServer(serverAddress, udpPort, udpCallback);
-                    udpServer.startServer();
-                } catch (Exception e) {
-                    log.error("run():", e);
-                    if (mCallback != null) {
-                        mCallback.onError(null, e);
-                    }
+            try {
+                tcpServer = new TCPServer(serverAddress, tcpPort, tcpCallback);
+                tcpServer.startServer();
+                udpServer = new UDPServer(serverAddress, udpPort, udpCallback);
+                udpServer.startServer();
+            } catch (Exception e) {
+                log.error("run():", e);
+                if (mCallback != null) {
+                    mCallback.onError(null, e);
                 }
             }
         };

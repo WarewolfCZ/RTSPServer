@@ -1,5 +1,7 @@
 package cz.warewolf.components.rtsp.server;
 
+import cz.warewolf.components.config.Configurator;
+import cz.warewolf.components.config.ConfiguratorInterface;
 import cz.warewolf.components.net.IClientConnection;
 import cz.warewolf.components.net.IServerCallback;
 import org.slf4j.Logger;
@@ -22,41 +24,64 @@ public class RTSPServerStandalone {
 
     public static void main(String[] args) throws InterruptedException {
         log.info("run(): RTSPServer is starting");
-        RTSPServer rtspServer = new RTSPServer("localhost", 1223, 1223, new IServerCallback() {
-            @Override
-            public void onClientConnected(IClientConnection iClientConnection) {
-
-            }
-
-            @Override
-            public void onDataReceived(IClientConnection iClientConnection, byte[] bytes, int i) {
-
-            }
-
-            @Override
-            public void onError(IClientConnection iClientConnection, Throwable throwable) {
-
-            }
-
-            @Override
-            public void onClientDisconnected(IClientConnection iClientConnection) {
-
-            }
-
-            @Override
-            public void onBeforeStart() {
-
-            }
-
-            @Override
-            public void onBeforeStop() {
-
-            }
+        // Handler for uncaught exceptions.
+        Thread.setDefaultUncaughtExceptionHandler((thread, e) -> {
+            log.error("main(): Uncaught exception ", e);
+            System.exit(1); // kill off the crashed app
         });
+
+        ConfiguratorInterface config = new Configurator();
+        if (args.length > 0) {
+            config.loadFromFile(args[0]);
+        } else {
+            config.loadFromFile(BuildConfig.DEFAULT_CONFIG_FILE);
+        }
+
+        RTSPServer rtspServer = new RTSPServer(
+                config.getValue("address", BuildConfig.DEFAULT_SERVER_ADDRESS),
+                Integer.valueOf(config.getValue("tcp.port", BuildConfig.DEFAULT_TCP_PORT)),
+                Integer.valueOf(config.getValue("udp.port", BuildConfig.DEFAULT_UDP_PORT)),
+                new IServerCallback() {
+                    @Override
+                    public void onClientConnected(IClientConnection iClientConnection) {
+
+                    }
+
+                    @Override
+                    public void onDataReceived(IClientConnection iClientConnection, byte[] bytes, int i) {
+
+                    }
+
+                    @Override
+                    public void onError(IClientConnection iClientConnection, Throwable throwable) {
+
+                    }
+
+                    @Override
+                    public void onClientDisconnected(IClientConnection iClientConnection) {
+
+                    }
+
+                    @Override
+                    public void onBeforeStart() {
+
+                    }
+
+                    @Override
+                    public void onBeforeStop() {
+
+                    }
+                });
         rtspServer.startServer();
-        sleep(5000);
-        log.info("run(): RTSPServer is stopping");
-        rtspServer.stopServer();
+        //sleep(5000);
+        //log.info("run(): RTSPServer is stopping");
+        //rtspServer.stopServer();
+
+        if (args.length > 0) {
+            config.saveToFile(args[0]);
+        } else {
+            config.saveToFile(BuildConfig.DEFAULT_CONFIG_FILE);
+        }
     }
 
 }

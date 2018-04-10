@@ -33,10 +33,12 @@ buildConfig {
             // custom fields can also be added
             // for example:
             // buildConfigField "String", "MYSTRING", "value"
-            buildConfigField 'int', 'DEFAULT_SERVER_PORT', '11200'
+            buildConfigField 'String', 'DEFAULT_TCP_PORT', '554'
+            buildConfigField 'String', 'DEFAULT_UDP_PORT', '554'
             buildConfigField "String", "DEFAULT_SERVER_ADDRESS", "localhost"
             buildConfigField "int", "DEFAULT_BUFFER_SIZE", "10_000"
             buildConfigField "int", "DEFAULT_POOL_SIZE", "10"
+            buildConfigField "String", "DEFAULT_CONFIG_FILE", "config.properties"
         }
         // add more or other sourceSets like "main", be aware
         // of conflicts if you use
@@ -56,6 +58,7 @@ dependencies {
     compile group: 'cz.warewolf.components.net', name: 'TCPServer', version: '1.0.0-SNAPSHOT'
     compile group: 'cz.warewolf.components.net', name: 'UDPServer', version: '1.0.0-SNAPSHOT'
     compile group: 'cz.warewolf.components', name: 'Common', version: '1.0.0-SNAPSHOT'
+    compile group: 'cz.warewolf.components.config', name: 'Configurator', version: '1.0.0-SNAPSHOT'
 }
 
 
