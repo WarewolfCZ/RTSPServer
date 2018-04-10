@@ -10,6 +10,7 @@ sourceCompatibility = 1.8
 
 buildscript {
     repositories {
+        mavenLocal()
         maven {
             url 'https://plugins.gradle.org/m2/'
         }
@@ -45,10 +46,25 @@ buildConfig {
 
 repositories {
     mavenCentral()
+    mavenLocal()
 }
 
 dependencies {
     testCompile group: 'junit', name: 'junit', version: '4.12'
     // https://mvnrepository.com/artifact/org.slf4j/slf4j-simple
     compile group: 'org.slf4j', name: 'slf4j-simple', version: '1.7.25'
+    compile group: 'cz.warewolf.components.net', name: 'TCPServer', version: '1.0.0-SNAPSHOT'
+    compile group: 'cz.warewolf.components.net', name: 'UDPServer', version: '1.0.0-SNAPSHOT'
+    compile group: 'cz.warewolf.components', name: 'Common', version: '1.0.0-SNAPSHOT'
+}
+
+
+jar {
+    manifest {
+        attributes 'Main-Class': 'cz.warewolf.components.rtsp.server.RTSPServerStandalone'
+    }
+    // This line of code recursively collects and copies all of a project's files
+    // and adds them to the JAR itself. One can extend this task, to skip certain
+    // files or particular types at will
+    from { configurations.compile.collect { it.isDirectory() ? it : zipTree(it) } }
 }
