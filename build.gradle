@@ -59,6 +59,7 @@ dependencies {
     compile group: 'cz.warewolf.components.net', name: 'UDPServer', version: '1.0.0-SNAPSHOT'
     compile group: 'cz.warewolf.components', name: 'Common', version: '1.0.0-SNAPSHOT'
     compile group: 'cz.warewolf.components.config', name: 'Configurator', version: '1.0.0-SNAPSHOT'
+    compile group: 'org.apache.commons', name: 'commons-configuration2', version: '2.2'
 }
 
 

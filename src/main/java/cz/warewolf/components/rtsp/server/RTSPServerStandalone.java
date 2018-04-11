@@ -77,11 +77,7 @@ public class RTSPServerStandalone {
         //log.info("run(): RTSPServer is stopping");
         //rtspServer.stopServer();
 
-        if (args.length > 0) {
-            config.saveToFile(args[0]);
-        } else {
-            config.saveToFile(BuildConfig.DEFAULT_CONFIG_FILE);
-        }
+        config.saveToFile();
     }
 
 }
