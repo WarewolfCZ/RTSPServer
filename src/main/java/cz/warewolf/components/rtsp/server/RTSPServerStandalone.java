@@ -23,14 +23,21 @@ public class RTSPServerStandalone {
     private static final Logger log = LoggerFactory.getLogger(RTSPServerStandalone.class);
 
     public static void main(String[] args) throws InterruptedException {
+        ConfiguratorInterface config = new Configurator();
         log.info("run(): RTSPServer is starting");
         // Handler for uncaught exceptions.
         Thread.setDefaultUncaughtExceptionHandler((thread, e) -> {
             log.error("main(): Uncaught exception ", e);
+            try {
+                log.info("main(): saving configuration");
+                config.saveToFile();
+            } catch (Exception e2) {
+                log.warn("main():", e2);
+            }
             System.exit(1); // kill off the crashed app
         });
 
-        ConfiguratorInterface config = new Configurator();
+
         if (args.length > 0) {
             config.loadFromFile(args[0]);
         } else {
