@@ -1,6 +1,6 @@
 package cz.warewolf.components.rtsp.server;
 
-import cz.warewolf.components.net.ClientConnection;
+import cz.warewolf.components.rtsp.server.protocol.MediaStream;
 
 import java.util.List;
 
@@ -35,8 +35,11 @@ public interface IRTSPServer {
 
     boolean isRunning();
 
-    List<ClientConnection> getClients();
+    List<RTSPClient> getClients();
 
     void setClientSessionTimeout(long timeout);
 
+    void addStream(String url, MediaStream stream);
+
+    void removeStream(String url);
 }

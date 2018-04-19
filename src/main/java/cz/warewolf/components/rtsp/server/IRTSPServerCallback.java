@@ -1,6 +1,6 @@
 package cz.warewolf.components.rtsp.server;
 
-import cz.warewolf.components.net.IClientConnection;
+import cz.warewolf.components.net.ITCPClientConnection;
 
 /**
  * <p>Title: IRTSPServerCallback</p>
@@ -13,13 +13,13 @@ import cz.warewolf.components.net.IClientConnection;
  */
 public interface IRTSPServerCallback {
 
-    void onClientConnected(IClientConnection client);
+    void onClientConnected(ITCPClientConnection client);
 
-    void onDataReceived(IClientConnection clientConnection, byte[] data, int dataLength);
+    void onDataReceived(ITCPClientConnection clientConnection, byte[] data, int dataLength);
 
-    void onError(IClientConnection clientConnection, Throwable throwable);
+    void onError(ITCPClientConnection clientConnection, Throwable throwable);
 
-    void onClientDisconnected(IClientConnection client);
+    void onClientDisconnected(ITCPClientConnection client);
 
     /**
      * Called before server has started

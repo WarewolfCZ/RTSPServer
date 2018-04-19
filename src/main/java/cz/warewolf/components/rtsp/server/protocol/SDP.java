@@ -13,13 +13,13 @@ import java.util.List;
  * @author WarewolfCZ $Revision: $ $Id: $
  */
 public class SDP {
-    private static List<MediaStreamInfo> streams;
+    private static List<MediaStream> streams;
 
     public static String getSdp() {
         streams = new ArrayList<>();
         String result = "";
-        for (MediaStreamInfo stream : streams) {
-            result += stream.getSdp();
+        for (MediaStream stream : streams) {
+            result += stream.getDescription();
         }
 
         result += "m=video 0 RTP/AVP 96\r\n" +

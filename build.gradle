@@ -34,7 +34,7 @@ buildConfig {
             // for example:
             // buildConfigField "String", "MYSTRING", "value"
             buildConfigField 'String', 'DEFAULT_TCP_PORT', '554'
-            buildConfigField 'String', 'DEFAULT_UDP_PORT', '554'
+            buildConfigField 'String', 'DEFAULT_UDP_PORT', '556'
             buildConfigField "String", "DEFAULT_SERVER_ADDRESS", "localhost"
             buildConfigField "int", "DEFAULT_BUFFER_SIZE", "10_000"
             buildConfigField "int", "DEFAULT_POOL_SIZE", "10"
@@ -47,8 +47,8 @@ buildConfig {
 }
 
 repositories {
-    mavenCentral()
     mavenLocal()
+    mavenCentral()
 }
 
 dependencies {
@@ -57,9 +57,13 @@ dependencies {
     compile group: 'org.slf4j', name: 'slf4j-simple', version: '1.7.25'
     compile group: 'cz.warewolf.components.net', name: 'TCPServer', version: '1.0.0-SNAPSHOT'
     compile group: 'cz.warewolf.components.net', name: 'UDPServer', version: '1.0.0-SNAPSHOT'
+    compile group: 'cz.warewolf.components.net', name: 'UDPClient', version: '1.0.0-SNAPSHOT'
     compile group: 'cz.warewolf.components', name: 'Common', version: '1.0.0-SNAPSHOT'
     compile group: 'cz.warewolf.components.config', name: 'Configurator', version: '1.0.0-SNAPSHOT'
     compile group: 'org.apache.commons', name: 'commons-configuration2', version: '2.2'
+    compile 'uk.co.caprica:vlcj:3.10.1'
+    compile 'ch.qos.logback:logback-classic:1.1.2'
+    compile 'ch.qos.logback:logback-core:1.1.2'
 }
 
 
