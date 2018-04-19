@@ -18,35 +18,15 @@ public class RTSPClient {
     private static final Logger log = LoggerFactory.getLogger(RTSPClient.class);
 
     private final ITCPClientConnection mConnection;
-    private int mRtpPort;
-    private int mRtspPort;
     private String mSessionKey;
     private String transport;
     private String transportProtocol;
     private boolean mMulticast;
     private MediaStream mediaStream;
 
-    public RTSPClient(int rtpPort, int rtspPort, ITCPClientConnection connection, String session) {
-        mRtpPort = rtpPort;
-        mRtspPort = rtspPort;
+    public RTSPClient(ITCPClientConnection connection, String session) {
         mConnection = connection;
         mSessionKey = session;
-    }
-
-    public int getRtspPort() {
-        return mRtpPort;
-    }
-
-    public void setServerRtpPort(int rtpPort) {
-        this.mRtpPort = rtpPort;
-    }
-
-    public int getRtpPort() {
-        return mRtspPort;
-    }
-
-    public void setServerRtcpPort(int rtcpPort) {
-        this.mRtspPort = rtcpPort;
     }
 
     public ITCPClientConnection getConnection() {

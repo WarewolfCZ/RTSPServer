@@ -4,7 +4,6 @@ import cz.warewolf.components.config.Configurator;
 import cz.warewolf.components.config.ConfiguratorInterface;
 import cz.warewolf.components.net.ITCPClientConnection;
 import cz.warewolf.components.rtsp.server.protocol.MediaStream;
-import cz.warewolf.components.rtsp.server.protocol.MediaStreamPart;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -24,7 +23,7 @@ public class RTSPServerStandalone {
 
     private static final Logger log = LoggerFactory.getLogger(RTSPServerStandalone.class);
 
-    public static void main(String[] args) throws InterruptedException, URISyntaxException {
+    public static void main(String[] args) throws URISyntaxException {
         ConfiguratorInterface config = new Configurator();
         log.info("run(): RTSPServer is starting");
         // Handler for uncaught exceptions.
@@ -58,11 +57,6 @@ public class RTSPServerStandalone {
                     }
 
                     @Override
-                    public void onDataReceived(ITCPClientConnection clientConnection, byte[] data, int dataLength) {
-
-                    }
-
-                    @Override
                     public void onError(ITCPClientConnection clientConnection, Throwable throwable) {
 
                     }
@@ -83,12 +77,9 @@ public class RTSPServerStandalone {
                     }
                 });
         MediaStream stream = new MediaStream("rtsp://184.72.239.149/vod/mp4:BigBuckBunny_175k.mov");
-        MediaStreamPart part = new MediaStreamPart(0);
-        stream.addPart(part);
         rtspServer.addStream("/bunny", stream);
         File f = new File("big_buck_bunny_480p_surround-fix.avi");
         MediaStream stream2 = new MediaStream("file://" + f.getAbsolutePath());
-        stream2.addPart(part);
         rtspServer.addStream("/bunny2", stream2);
         rtspServer.startServer();
         //sleep(5000);

@@ -15,8 +15,6 @@ public interface IRTSPServerCallback {
 
     void onClientConnected(ITCPClientConnection client);
 
-    void onDataReceived(ITCPClientConnection clientConnection, byte[] data, int dataLength);
-
     void onError(ITCPClientConnection clientConnection, Throwable throwable);
 
     void onClientDisconnected(ITCPClientConnection client);

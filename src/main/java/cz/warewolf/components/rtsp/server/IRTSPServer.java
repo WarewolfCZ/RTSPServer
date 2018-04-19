@@ -37,8 +37,6 @@ public interface IRTSPServer {
 
     List<RTSPClient> getClients();
 
-    void setClientSessionTimeout(long timeout);
-
     void addStream(String url, MediaStream stream);
 
     void removeStream(String url);

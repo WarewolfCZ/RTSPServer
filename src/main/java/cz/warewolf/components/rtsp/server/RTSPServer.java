@@ -39,8 +39,8 @@ public class RTSPServer implements IRTSPServer {
     private final IRTSPServerCallback mCallback;
     private final int mBaseRtpDataPort;
     private final Runnable mRunnable;
+    private final String mServerAddress;
     private int mStartStopTimeout = 1000; //[ms]
-    private long mClientSessionTimeout = 60_000L; //[ms]
     private TCPServer mTcpServer;
     private ITCPServerCallback mTcpCallback;
     private boolean mTcpRunning;
@@ -51,22 +51,28 @@ public class RTSPServer implements IRTSPServer {
 
     @SuppressWarnings("WeakerAccess")
     public RTSPServer(String serverAddress, int tcpPort, int udpPort, IRTSPServerCallback callback) {
-        this.mCallback = callback;
+        boolean found = new NativeDiscovery().discover();
+        log.info("VLC library found using NativeDiscovery: " + found);
+        log.info("VLC version: " + LibVlc.INSTANCE.libvlc_get_version());
+
+        mCallback = callback;
         mRtpDataPorts = new ArrayList<>();
         mBaseRtpDataPort = udpPort;
         mClients = new HashMap<>();
         mStreams = new HashMap<>();
         mMediaPlayers = new HashMap<>();
+        mServerAddress = serverAddress;
 
         mTcpCallback = new ITCPServerCallback() {
             @Override
             public void onClientConnected(ITCPClientConnection client) {
                 log.info("TCP Client " + client + " connected");
-                int rtpPort = generateRtpPort();
-                int rtspPort = rtpPort + 1;
                 String sessionId = generateSessionId();
-                RTSPClient rtspClient = new RTSPClient(rtpPort, rtspPort, client, sessionId);
+                RTSPClient rtspClient = new RTSPClient(client, sessionId);
                 mClients.put(client, rtspClient);
+                if (mCallback != null) {
+                    mCallback.onClientConnected(client);
+                }
             }
 
             @Override
@@ -79,9 +85,6 @@ public class RTSPServer implements IRTSPServer {
                     String response = "";
                     String content = "";
                     String path = url.getPath();
-                    if (path.contains("/streamid=")) {
-                        path = path.substring(0, path.lastIndexOf("/streamid="));
-                    }
                     log.info("RTSPServer parsed url: " + url + ", path: " + url.getPath() + ", media path: " + path);
                     RTSPClient rtspClient = mClients.get(client);
                     MediaStream mediaStream = mStreams.get(path);
@@ -89,82 +92,21 @@ public class RTSPServer implements IRTSPServer {
                     if (request.getType() != null && rtspClient != null && mediaStream != null) {
                         switch (request.getType()) {
                             case OPTIONS:
-                                response = "RTSP/1.0 200 OK\r\n" +
-                                        "Cseq: " + request.getHeader("CSeq") + "\r\n" +
-                                        "Public: DESCRIBE, SETUP, TEARDOWN, PLAY, PAUSE\r\n";
-
-                                if (mediaPlayer == null) {
-                                    //new Thread(() -> startMediaPlayer(null, 1559, serverAddress, serverPort, mediaStream.getPath())).start();
-                                    mediaPlayer = startMediaPlayer(rtspClient.getRtpPort(), serverAddress, rtspClient.getRtspPort(), mediaStream.getPath());
-                                    mMediaPlayers.put(path, mediaPlayer);
-                                    mediaStream.setRtspPort(rtspClient.getRtspPort());
-                                } else {
-                                    mediaPlayer.play();
+                                mediaPlayer.play();
+                                int timer = 200;
+                                while (!mediaPlayer.isPlaying() && timer > 0) {
+                                    Thread.sleep(30);
+                                    timer--;
                                 }
-
-                                Thread.sleep(3000);
                                 response = "RTSP/1.0 302 Moved Temporarily\r\n" +
                                         "Cseq: " + request.getHeader("CSeq") + "\r\n" +
-                                        "Location: rtsp://" + serverAddress + ":" + mediaStream.getRtspPort() + "/test.sdp\r\n";
-                                break;
-                            case DESCRIBE:
-                                content = mediaStream.getDescription();
-                                response = "RTSP/1.0 200 OK\r\n" +
-                                        "Cseq: " + request.getHeader("CSeq") + "\r\n" +
-                                        "Content-Type: application/sdp\r\n";
-                                break;
-                            case SETUP:
-                                String sessionId = mClients.get(client).getSessionKey();
-                                rtspClient.setTransport(request.getHeader("Transport"));
-                                response = "RTSP/1.0 200 OK\r\n" +
-                                        "Cseq: " + request.getHeader("CSeq") + "\r\n" +
-                                        "Transport: " + request.getHeader("Transport") + ";server_port=" +
-                                        rtspClient.getRtspPort() + "-" + rtspClient.getRtpPort() +
-                                        ";ssrc=1234ABCD\r\n" +
-                                        "Session: " + sessionId + "\r\n";
-                                break;
-                            case PLAY:
-                                response = "RTSP/1.0 200 OK\r\n" +
-                                        "Cseq: " + request.getHeader("CSeq") + "\r\n" +
-                                        "Session: " + request.getHeader("Session") + "\r\n" +
-                                        "RTP-Info: url=" + url.getScheme() + "://" + url.getHost() + ":" + url.getPort() + "" + url.getPath() + "/streamid=0;seq=9810092;rtptime=3450012\r\n";
-
-                                response = "RTSP/1.0 302 Moved Temporarily\r\n" +
-                                        "Cseq: " + request.getHeader("CSeq") + "\r\n" +
-                                        "Location: rtsp://184.72.239.149/vod/mp4:BigBuckBunny_175k.mov\r\n";
-
-
-                                break;
-                            case PAUSE:
-                                response = "RTSP/1.0 200 OK\r\n" +
-                                        "Cseq: " + request.getHeader("CSeq") + "\r\n" +
-                                        "Session: " + request.getHeader("Session") + "\r\n";
-                                mediaPlayer.pause();
-                                break;
-                            case TEARDOWN:
-                                response = "RTSP/1.0 200 OK\r\n" + "Cseq: " + request.getHeader("CSeq") + "\r\n";
-                                rtspClient.setMediaStream(null);
-                                mediaPlayer.stop();
-                                mediaPlayer.release();
+                                        "Location: rtsp://" + mServerAddress + ":" + mediaStream.getRtspPort() + "/test.sdp\r\n";
                                 break;
                             case ANNOUNCE:
                                 response = "RTSP/1.0 200 OK\r\n" +
                                         "Cseq: " + request.getHeader("CSeq") + "\r\n";
                                 break;
-                            case RECORD:
-                                response = "RTSP/1.0 200 OK\r\n" +
-                                        "Cseq: " + request.getHeader("CSeq") + "\r\n" +
-                                        "Session: " + request.getHeader("Session") + "\r\n";
-                                break;
-                            case GET_PARAMETER:
-                                response = "RTSP/1.0 200 OK\r\n" +
-                                        "Cseq: " + request.getHeader("CSeq") + "\r\n";
-                                break;
-                            case SET_PARAMETER:
-                                response = "RTSP/1.0 200 OK\r\n" +
-                                        "Cseq: " + request.getHeader("CSeq") + "\r\n";
-                                break;
-                        }
+                            }
                         response += wrapContent(content);
                         log.info("RTSPServer response: \n" + response);
                         client.write(response.getBytes());
@@ -206,6 +148,9 @@ public class RTSPServer implements IRTSPServer {
             public void onClientDisconnected(ITCPClientConnection client) {
                 log.info("TCP Client " + client + " disconnected");
                 mClients.remove(client);
+                if (mCallback != null) {
+                    mCallback.onClientDisconnected(client);
+                }
             }
 
             @Override
@@ -224,13 +169,8 @@ public class RTSPServer implements IRTSPServer {
         this.mRunnable = () -> {
             Thread.currentThread().setName(RTSPServer.this.getClass().getSimpleName() + "-" + Thread.currentThread().getId());
 
-
             try {
-                boolean found = new NativeDiscovery().discover();
-                log.info("VLC library found using NativeDiscovery: " + found);
-                log.info("VLC version: " + LibVlc.INSTANCE.libvlc_get_version());
-
-                mTcpServer = new TCPServer(serverAddress, tcpPort, mTcpCallback);
+                mTcpServer = new TCPServer(mServerAddress, tcpPort, mTcpCallback);
                 mTcpServer.startServer();
             } catch (Exception e) {
                 log.error("run():", e);
@@ -241,7 +181,7 @@ public class RTSPServer implements IRTSPServer {
         };
     }
 
-    private MediaPlayer startMediaPlayer(int rtpPort, String rtspAddress, int rtspPort, String path) {
+    private MediaPlayer getMediaPlayer(int rtpPort, String rtspAddress, int rtspPort, String path) {
         path = path.replace("file://", "");
         String[] vlcArgs = {
                 "--rtsp-host=" + rtspAddress
@@ -440,13 +380,9 @@ public class RTSPServer implements IRTSPServer {
                                                     }
                                                 }
         );
-        String options = ":sout=#rtp{" +
-                "port=" + rtpPort + "," +
-                "sdp=rtsp://" + rtspAddress + ":" + rtspPort + "/test.sdp}";
-
+        String options = ":sout=#rtp{port=" + rtpPort + ",sdp=rtsp://" + rtspAddress + ":" + rtspPort + "/test.sdp}";
         log.info("VLC Options: " + options);
         mediaPlayer.prepareMedia(path, options);
-        mediaPlayer.play();
 
         return mediaPlayer;
     }
@@ -553,38 +489,25 @@ public class RTSPServer implements IRTSPServer {
     }
 
     @Override
-    public void setClientSessionTimeout(long timeout) {
-        this.mClientSessionTimeout = timeout;
-    }
-
-    @Override
-    public void addStream(String url, MediaStream stream) {
-        if (url != null && stream != null) {
-            mStreams.put(url, stream);
+    public void addStream(String path, MediaStream mediaStream) {
+        if (path != null && mediaStream != null) {
+            int rtpPort = generateRtpPort();
+            int rtspPort = rtpPort + 1;
+            MediaPlayer mediaPlayer = getMediaPlayer(rtpPort, mServerAddress, rtspPort, mediaStream.getPath());
+            mMediaPlayers.put(path, mediaPlayer);
+            mediaStream.setRtspPort(rtspPort);
+            mStreams.put(path, mediaStream);
         }
     }
 
     @Override
-    public void removeStream(String url) {
-        if (url != null) {
-            mStreams.remove(url);
-        }
-    }
-
-    private void cleanupSessions() {
-        if (mClients != null) {
-            List<ITCPClientConnection> clientConnections = new ArrayList<>();
-            for (ITCPClientConnection client : mClients.keySet()) {
-                if (client != null && System.currentTimeMillis() - client.getLastRead() > mClientSessionTimeout) {
-                    clientConnections.add(client);
-                }
-            }
-            for (ITCPClientConnection client : clientConnections) {
-                log.debug("cleanupSessions(): client " + client + " was quiet for too long, deleting session");
-                if (client != null && mCallback != null) {
-                    mClients.remove(client);
-                    mCallback.onClientDisconnected(client);
-                }
+    public void removeStream(String path) {
+        if (path != null) {
+            mStreams.remove(path);
+            MediaPlayer mediaPlayer = mMediaPlayers.get(path);
+            if (mediaPlayer != null) {
+                mediaPlayer.stop();
+                mediaPlayer.release();
             }
         }
     }
