@@ -37,7 +37,7 @@ public interface IRTSPServer {
 
     List<RTSPClient> getClients();
 
-    void addStream(String url, MediaStream stream);
+    void registerStream(String url, MediaStream stream);
 
     void removeStream(String url);
 }

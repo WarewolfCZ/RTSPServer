@@ -7,7 +7,6 @@ import cz.warewolf.components.rtsp.server.protocol.MediaStream;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.io.File;
 import java.net.URISyntaxException;
 
 /**
@@ -24,6 +23,8 @@ public class RTSPServerStandalone {
     private static final Logger log = LoggerFactory.getLogger(RTSPServerStandalone.class);
 
     public static void main(String[] args) throws URISyntaxException {
+        Thread.currentThread().setName("main-" + Thread.currentThread().getId());
+
         ConfiguratorInterface config = new Configurator();
         log.info("run(): RTSPServer is starting");
         // Handler for uncaught exceptions.
@@ -47,8 +48,8 @@ public class RTSPServerStandalone {
 
         RTSPServer rtspServer = new RTSPServer(
                 config.getValue("address", BuildConfig.DEFAULT_SERVER_ADDRESS),
-                Integer.valueOf(config.getValue("tcp.port", BuildConfig.DEFAULT_TCP_PORT)),
-                Integer.valueOf(config.getValue("udp.port", BuildConfig.DEFAULT_UDP_PORT)),
+                Integer.valueOf(config.getValue("rtsp.port", BuildConfig.DEFAULT_RTSP_PORT)),
+                Integer.valueOf(config.getValue("rtp.port", BuildConfig.DEFAULT_RTP_PORT)),
                 new IRTSPServerCallback() {
 
                     @Override
@@ -76,16 +77,19 @@ public class RTSPServerStandalone {
 
                     }
                 });
-        MediaStream stream = new MediaStream("rtsp://184.72.239.149/vod/mp4:BigBuckBunny_175k.mov");
-        rtspServer.addStream("/bunny", stream);
-        File f = new File("big_buck_bunny_480p_surround-fix.avi");
-        MediaStream stream2 = new MediaStream("file://" + f.getAbsolutePath());
-        rtspServer.addStream("/bunny2", stream2);
+        for (int i = 1; i < args.length; i += 2) {
+            String rtspPath = args[i];
+            String filePath = args[i + 1];
+            if (!filePath.startsWith("file://") &&
+                    !filePath.startsWith("rtsp://") &&
+                    !filePath.startsWith("http://") &&
+                    !filePath.startsWith("rtp://")) {
+                filePath = "file://" + filePath;
+            }
+            MediaStream stream = new MediaStream(filePath);
+            rtspServer.registerStream(rtspPath, stream);
+        }
         rtspServer.startServer();
-        //sleep(5000);
-        //log.info("run(): RTSPServer is stopping");
-        //rtspServer.stopServer();
-
         config.saveToFile();
     }
 

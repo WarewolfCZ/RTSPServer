@@ -33,8 +33,8 @@ buildConfig {
             // custom fields can also be added
             // for example:
             // buildConfigField "String", "MYSTRING", "value"
-            buildConfigField 'String', 'DEFAULT_TCP_PORT', '554'
-            buildConfigField 'String', 'DEFAULT_UDP_PORT', '556'
+            buildConfigField 'String', 'DEFAULT_RTSP_PORT', '554'
+            buildConfigField 'String', 'DEFAULT_RTP_PORT', '5556'
             buildConfigField "String", "DEFAULT_SERVER_ADDRESS", "localhost"
             buildConfigField "int", "DEFAULT_BUFFER_SIZE", "10_000"
             buildConfigField "int", "DEFAULT_POOL_SIZE", "10"

@@ -37,7 +37,7 @@ public class RTSPServer implements IRTSPServer {
 
     private static final Logger log = LoggerFactory.getLogger(RTSPServer.class);
     private final IRTSPServerCallback mCallback;
-    private final int mBaseRtpDataPort;
+    private final int mBaseRtpPort;
     private final Runnable mRunnable;
     private final String mServerAddress;
     private int mStartStopTimeout = 1000; //[ms]
@@ -50,14 +50,14 @@ public class RTSPServer implements IRTSPServer {
     private Map<String, MediaPlayer> mMediaPlayers;
 
     @SuppressWarnings("WeakerAccess")
-    public RTSPServer(String serverAddress, int tcpPort, int udpPort, IRTSPServerCallback callback) {
+    public RTSPServer(String serverAddress, int rtspPort, int rtpPort, IRTSPServerCallback callback) {
         boolean found = new NativeDiscovery().discover();
-        log.info("VLC library found using NativeDiscovery: " + found);
+        log.debug("VLC library found using NativeDiscovery: " + found);
         log.info("VLC version: " + LibVlc.INSTANCE.libvlc_get_version());
 
         mCallback = callback;
         mRtpDataPorts = new ArrayList<>();
-        mBaseRtpDataPort = udpPort;
+        mBaseRtpPort = rtpPort;
         mClients = new HashMap<>();
         mStreams = new HashMap<>();
         mMediaPlayers = new HashMap<>();
@@ -93,6 +93,7 @@ public class RTSPServer implements IRTSPServer {
                         switch (request.getType()) {
                             case OPTIONS:
                                 mediaPlayer.play();
+                                Thread.sleep(2000);
                                 int timer = 200;
                                 while (!mediaPlayer.isPlaying() && timer > 0) {
                                     Thread.sleep(30);
@@ -155,6 +156,7 @@ public class RTSPServer implements IRTSPServer {
 
             @Override
             public void onBeforeStart() {
+                Thread.currentThread().setName("ITCPServerCallback-" + Thread.currentThread().getId());
                 log.info("TCP Server starting");
                 mTcpRunning = true;
             }
@@ -170,8 +172,11 @@ public class RTSPServer implements IRTSPServer {
             Thread.currentThread().setName(RTSPServer.this.getClass().getSimpleName() + "-" + Thread.currentThread().getId());
 
             try {
-                mTcpServer = new TCPServer(mServerAddress, tcpPort, mTcpCallback);
+                mTcpServer = new TCPServer(mServerAddress, rtspPort, mTcpCallback);
                 mTcpServer.startServer();
+                for (String path : mStreams.keySet()) {
+                    log.info("Stream address: rtsp://" + mTcpServer.getAddress() + ":" + rtspPort + path);
+                }
             } catch (Exception e) {
                 log.error("run():", e);
                 if (mCallback != null) {
@@ -191,7 +196,8 @@ public class RTSPServer implements IRTSPServer {
         mediaPlayer.addMediaPlayerEventListener(new MediaPlayerEventListener() {
                                                     @Override
                                                     public void mediaChanged(MediaPlayer mediaPlayer, libvlc_media_t media, String mrl) {
-                                                        log.info("media changed: " + mrl);
+                                                        Thread.currentThread().setName("MediaPlayerEventListener-" + Thread.currentThread().getId());
+                                                        log.debug("media changed: " + mrl);
                                                     }
 
                                                     @Override
@@ -201,12 +207,11 @@ public class RTSPServer implements IRTSPServer {
 
                                                     @Override
                                                     public void buffering(MediaPlayer mediaPlayer, float newCache) {
-                                                        //log.info("buffering: " + newCache);
                                                     }
 
                                                     @Override
                                                     public void playing(MediaPlayer mediaPlayer) {
-                                                        log.info("playing " + mediaPlayer.getMediaMeta());
+                                                        log.info("playing " + mediaPlayer.getMediaMeta().getTitle());
                                                     }
 
                                                     @Override
@@ -261,7 +266,7 @@ public class RTSPServer implements IRTSPServer {
 
                                                     @Override
                                                     public void snapshotTaken(MediaPlayer mediaPlayer, String filename) {
-                                                        log.info("snapshot taken: " + filename);
+                                                        log.debug("snapshot taken: " + filename);
                                                     }
 
                                                     @Override
@@ -271,7 +276,7 @@ public class RTSPServer implements IRTSPServer {
 
                                                     @Override
                                                     public void videoOutput(MediaPlayer mediaPlayer, int newCount) {
-                                                        log.info("video output: " + newCount);
+                                                        log.debug("video output: " + newCount);
                                                     }
 
                                                     @Override
@@ -281,7 +286,7 @@ public class RTSPServer implements IRTSPServer {
 
                                                     @Override
                                                     public void elementaryStreamAdded(MediaPlayer mediaPlayer, int type, int id) {
-                                                        log.info("elementary stream added " + mediaPlayer.getVideoDimension());
+                                                        log.debug("elementary stream added " + mediaPlayer.getVideoDimension());
                                                     }
 
                                                     @Override
@@ -336,7 +341,7 @@ public class RTSPServer implements IRTSPServer {
 
                                                     @Override
                                                     public void mediaDurationChanged(MediaPlayer mediaPlayer, long newDuration) {
-                                                        log.info("media duration changed: " + newDuration);
+                                                        log.debug("media duration changed: " + newDuration);
                                                     }
 
                                                     @Override
@@ -381,7 +386,7 @@ public class RTSPServer implements IRTSPServer {
                                                 }
         );
         String options = ":sout=#rtp{port=" + rtpPort + ",sdp=rtsp://" + rtspAddress + ":" + rtspPort + "/test.sdp}";
-        log.info("VLC Options: " + options);
+        log.debug("VLC Options: " + options);
         mediaPlayer.prepareMedia(path, options);
 
         return mediaPlayer;
@@ -409,7 +414,7 @@ public class RTSPServer implements IRTSPServer {
     public boolean startServer(boolean wait) {
         boolean result = true;
         try {
-            log.info("run(): Server is starting");
+            log.info("startServer(): RTSP Server is starting");
             if (mCallback != null) {
                 mCallback.onBeforeStart();
             }
@@ -455,13 +460,13 @@ public class RTSPServer implements IRTSPServer {
         if (mTcpServer != null) {
             mTcpServer.stopServer();
         }
-        log.info("run(): Server is stopping");
+        log.info("stopServer(): RTSP Server is stopping");
         if (mCallback != null) {
             mCallback.onBeforeStop();
         }
         boolean result = true;
         try {
-            log.trace("startServer(): runnable: " + mRunnable.toString()); // used in tests to trigger exception
+            log.trace("stopServer(): runnable: " + mRunnable.toString()); // used in tests to trigger exception
             int i = mStartStopTimeout / 10;
             while (wait && i > 0 && mTcpRunning) {
                 i--;
@@ -489,8 +494,9 @@ public class RTSPServer implements IRTSPServer {
     }
 
     @Override
-    public void addStream(String path, MediaStream mediaStream) {
+    public void registerStream(String path, MediaStream mediaStream) {
         if (path != null && mediaStream != null) {
+            log.info("Registering stream " + mediaStream.getPath() + " to " + path);
             int rtpPort = generateRtpPort();
             int rtspPort = rtpPort + 1;
             MediaPlayer mediaPlayer = getMediaPlayer(rtpPort, mServerAddress, rtspPort, mediaStream.getPath());
@@ -535,7 +541,7 @@ public class RTSPServer implements IRTSPServer {
     private int generateRtpPort() {
         int result = -1;
         if (mRtpDataPorts.isEmpty()) {
-            result = mBaseRtpDataPort;
+            result = mBaseRtpPort;
             mRtpDataPorts.add(result);
         } else {
             for (int port : mRtpDataPorts) {

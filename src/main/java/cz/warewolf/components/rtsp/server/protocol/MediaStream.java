@@ -21,9 +21,9 @@ public class MediaStream {
     private int rtspPort;
 
     public MediaStream(String path) throws URISyntaxException {
-        URI uri = new URI(path);
+        URI uri = new URI(path.replace("\\", "/"));
         mPath = path;
-        log.info("parsed uri: " + uri);
+        log.debug("Stream location: " + uri);
         switch (uri.getScheme()) {
             case "file":
                 break;
@@ -47,5 +47,13 @@ public class MediaStream {
 
     public int getRtspPort() {
         return rtspPort;
+    }
+
+    @Override
+    public String toString() {
+        return "MediaStream{" +
+                "mPath='" + mPath + '\'' +
+                ", rtspPort=" + rtspPort +
+                '}';
     }
 }
