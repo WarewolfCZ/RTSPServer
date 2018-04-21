@@ -62,8 +62,9 @@ public class RTSPRequest {
                 }
 
                 StringBuilder content = new StringBuilder();
+                i++;
                 for (; i < lines.length; i++) {
-                    content.append(lines[i]);
+                    content.append(lines[i]).append("\n");
                 }
                 request.setContent(content.toString());
 

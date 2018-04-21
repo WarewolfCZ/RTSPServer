@@ -5,6 +5,7 @@ import cz.warewolf.components.net.ITCPServerCallback;
 import cz.warewolf.components.net.TCPServer;
 import cz.warewolf.components.rtsp.server.protocol.MediaStream;
 import cz.warewolf.components.rtsp.server.protocol.RTSPRequest;
+import cz.warewolf.components.rtsp.server.protocol.RTSPRequestType;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import uk.co.caprica.vlcj.binding.LibVlc;
@@ -15,7 +16,10 @@ import uk.co.caprica.vlcj.player.MediaPlayerEventListener;
 import uk.co.caprica.vlcj.player.MediaPlayerFactory;
 import uk.co.caprica.vlcj.player.headless.HeadlessMediaPlayer;
 
+import java.io.File;
+import java.io.FileWriter;
 import java.io.IOException;
+import java.io.PrintWriter;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.util.ArrayList;
@@ -90,30 +94,37 @@ public class RTSPServer implements IRTSPServer {
                     MediaStream mediaStream = mStreams.get(path);
                     MediaPlayer mediaPlayer = mMediaPlayers.get(path);
                     if (request.getType() != null && rtspClient != null && mediaStream != null) {
-                        switch (request.getType()) {
-                            case OPTIONS:
-                                mediaPlayer.play();
-                                Thread.sleep(2000);
-                                int timer = 200;
-                                while (!mediaPlayer.isPlaying() && timer > 0) {
-                                    Thread.sleep(30);
-                                    timer--;
-                                }
-                                response = "RTSP/1.0 302 Moved Temporarily\r\n" +
-                                        "Cseq: " + request.getHeader("CSeq") + "\r\n" +
-                                        "Location: rtsp://" + mServerAddress + ":" + mediaStream.getRtspPort() + "/test.sdp\r\n";
-                                break;
-                            case ANNOUNCE:
-                                response = "RTSP/1.0 200 OK\r\n" +
-                                        "Cseq: " + request.getHeader("CSeq") + "\r\n";
-                                break;
+                        if (request.getType() == RTSPRequestType.OPTIONS) {
+                            mediaPlayer.play();
+                            Thread.sleep(2000);
+                            int timer = 200;
+                            while (!mediaPlayer.isPlaying() && timer > 0) {
+                                Thread.sleep(30);
+                                timer--;
                             }
+                            response = "RTSP/1.0 302 Moved Temporarily\r\n" +
+                                    "Cseq: " + request.getHeader("CSeq") + "\r\n" +
+                                    "Location: rtsp://" + mServerAddress + ":" + mediaStream.getRtspPort() + "/test.sdp\r\n";
+
+                        }
                         response += wrapContent(content);
                         log.info("RTSPServer response: \n" + response);
                         client.write(response.getBytes());
                     } else if (mediaStream == null) {
-                        response = "RTSP/1.0 404 Not Found\r\n";
-                        response += wrapContent(content);
+                        if (request.getType() == RTSPRequestType.ANNOUNCE) {
+                            response = "RTSP/1.0 200 OK\r\n" + "Cseq: " + request.getHeader("CSeq") + "\r\n";
+
+                            MediaStream newStream = new MediaStream(url.toString());
+                            newStream.setSdp(request.getContent());
+                            if (registerStream(path, newStream)) {
+                                mediaPlayer = mMediaPlayers.get(path);
+                                mediaPlayer.play();
+                            }
+                        } else {
+                            response = "RTSP/1.0 404 Not Found\r\n";
+                            response += wrapContent(content);
+                        }
+
                         log.info("RTSPServer response: \n" + response);
                         client.write(response.getBytes());
                     }
@@ -392,6 +403,217 @@ public class RTSPServer implements IRTSPServer {
         return mediaPlayer;
     }
 
+    private MediaPlayer fuck(String sdp) throws IOException {
+        String[] vlcArgs = {
+        };
+        MediaPlayerFactory mediaPlayerFactory = new MediaPlayerFactory(vlcArgs);
+        HeadlessMediaPlayer mediaPlayer = mediaPlayerFactory.newHeadlessMediaPlayer();
+        mediaPlayer.addMediaPlayerEventListener(new MediaPlayerEventListener() {
+                                                    @Override
+                                                    public void mediaChanged(MediaPlayer mediaPlayer, libvlc_media_t media, String mrl) {
+                                                        Thread.currentThread().setName("MediaPlayerEventListener-" + Thread.currentThread().getId());
+                                                        log.debug("media changed: " + mrl);
+                                                    }
+
+                                                    @Override
+                                                    public void opening(MediaPlayer mediaPlayer) {
+                                                        log.info("opening");
+                                                    }
+
+                                                    @Override
+                                                    public void buffering(MediaPlayer mediaPlayer, float newCache) {
+                                                    }
+
+                                                    @Override
+                                                    public void playing(MediaPlayer mediaPlayer) {
+                                                        log.info("playing " + mediaPlayer.getMediaMeta().getTitle());
+                                                    }
+
+                                                    @Override
+                                                    public void paused(MediaPlayer mediaPlayer) {
+
+                                                    }
+
+                                                    @Override
+                                                    public void stopped(MediaPlayer mediaPlayer) {
+                                                        log.info("stopped");
+                                                    }
+
+                                                    @Override
+                                                    public void forward(MediaPlayer mediaPlayer) {
+
+                                                    }
+
+                                                    @Override
+                                                    public void backward(MediaPlayer mediaPlayer) {
+
+                                                    }
+
+                                                    @Override
+                                                    public void finished(MediaPlayer mediaPlayer) {
+                                                        log.info("finished");
+                                                    }
+
+                                                    @Override
+                                                    public void timeChanged(MediaPlayer mediaPlayer, long newTime) {
+                                                        log.debug("time changed: " + newTime);
+                                                    }
+
+                                                    @Override
+                                                    public void positionChanged(MediaPlayer mediaPlayer, float newPosition) {
+                                                        log.debug("position changed: " + newPosition);
+                                                    }
+
+                                                    @Override
+                                                    public void seekableChanged(MediaPlayer mediaPlayer, int newSeekable) {
+
+                                                    }
+
+                                                    @Override
+                                                    public void pausableChanged(MediaPlayer mediaPlayer, int newPausable) {
+
+                                                    }
+
+                                                    @Override
+                                                    public void titleChanged(MediaPlayer mediaPlayer, int newTitle) {
+
+                                                    }
+
+                                                    @Override
+                                                    public void snapshotTaken(MediaPlayer mediaPlayer, String filename) {
+                                                        log.debug("snapshot taken: " + filename);
+                                                    }
+
+                                                    @Override
+                                                    public void lengthChanged(MediaPlayer mediaPlayer, long newLength) {
+
+                                                    }
+
+                                                    @Override
+                                                    public void videoOutput(MediaPlayer mediaPlayer, int newCount) {
+                                                        log.debug("video output: " + newCount);
+                                                    }
+
+                                                    @Override
+                                                    public void scrambledChanged(MediaPlayer mediaPlayer, int newScrambled) {
+
+                                                    }
+
+                                                    @Override
+                                                    public void elementaryStreamAdded(MediaPlayer mediaPlayer, int type, int id) {
+                                                        log.debug("elementary stream added " + mediaPlayer.getVideoDimension());
+                                                    }
+
+                                                    @Override
+                                                    public void elementaryStreamDeleted(MediaPlayer mediaPlayer, int type, int id) {
+
+                                                    }
+
+                                                    @Override
+                                                    public void elementaryStreamSelected(MediaPlayer mediaPlayer, int type, int id) {
+
+                                                    }
+
+                                                    @Override
+                                                    public void corked(MediaPlayer mediaPlayer, boolean corked) {
+
+                                                    }
+
+                                                    @Override
+                                                    public void muted(MediaPlayer mediaPlayer, boolean muted) {
+
+                                                    }
+
+                                                    @Override
+                                                    public void volumeChanged(MediaPlayer mediaPlayer, float volume) {
+
+                                                    }
+
+                                                    @Override
+                                                    public void audioDeviceChanged(MediaPlayer mediaPlayer, String audioDevice) {
+
+                                                    }
+
+                                                    @Override
+                                                    public void chapterChanged(MediaPlayer mediaPlayer, int newChapter) {
+
+                                                    }
+
+                                                    @Override
+                                                    public void error(MediaPlayer mediaPlayer) {
+                                                        log.error("Error");
+                                                    }
+
+                                                    @Override
+                                                    public void mediaMetaChanged(MediaPlayer mediaPlayer, int metaType) {
+                                                        log.debug("media meta changed: " + mediaPlayer.getMediaMeta());
+                                                    }
+
+                                                    @Override
+                                                    public void mediaSubItemAdded(MediaPlayer mediaPlayer, libvlc_media_t subItem) {
+
+                                                    }
+
+                                                    @Override
+                                                    public void mediaDurationChanged(MediaPlayer mediaPlayer, long newDuration) {
+                                                        log.debug("media duration changed: " + newDuration);
+                                                    }
+
+                                                    @Override
+                                                    public void mediaParsedChanged(MediaPlayer mediaPlayer, int newStatus) {
+
+                                                    }
+
+                                                    @Override
+                                                    public void mediaFreed(MediaPlayer mediaPlayer) {
+
+                                                    }
+
+                                                    @Override
+                                                    public void mediaStateChanged(MediaPlayer mediaPlayer, int newState) {
+
+                                                    }
+
+                                                    @Override
+                                                    public void mediaSubItemTreeAdded(MediaPlayer mediaPlayer, libvlc_media_t item) {
+
+                                                    }
+
+                                                    @Override
+                                                    public void newMedia(MediaPlayer mediaPlayer) {
+
+                                                    }
+
+                                                    @Override
+                                                    public void subItemPlayed(MediaPlayer mediaPlayer, int subItemIndex) {
+
+                                                    }
+
+                                                    @Override
+                                                    public void subItemFinished(MediaPlayer mediaPlayer, int subItemIndex) {
+
+                                                    }
+
+                                                    @Override
+                                                    public void endOfSubItems(MediaPlayer mediaPlayer) {
+
+                                                    }
+                                                }
+        );
+        File tempFile = File.createTempFile("rtspserver-", ".sdp");
+        PrintWriter writer = new PrintWriter(new FileWriter(tempFile.getAbsoluteFile(), false));
+        writer.append(sdp);
+        writer.flush();
+        writer.close();
+        tempFile.deleteOnExit();
+        String options = "";
+        log.debug("VLC Options: " + options);
+        log.info("SDP file: " + tempFile.getAbsolutePath());
+        mediaPlayer.prepareMedia(tempFile.getAbsolutePath(), options);
+
+        return mediaPlayer;
+    }
+
     /**
      * Start server and wait for the server socket to connect (maximum waiting time is 1000ms)
      * <p>
@@ -494,16 +716,30 @@ public class RTSPServer implements IRTSPServer {
     }
 
     @Override
-    public void registerStream(String path, MediaStream mediaStream) {
+    public boolean registerStream(String path, MediaStream mediaStream) {
+        boolean result = false;
         if (path != null && mediaStream != null) {
-            log.info("Registering stream " + mediaStream.getPath() + " to " + path);
-            int rtpPort = generateRtpPort();
-            int rtspPort = rtpPort + 1;
-            MediaPlayer mediaPlayer = getMediaPlayer(rtpPort, mServerAddress, rtspPort, mediaStream.getPath());
-            mMediaPlayers.put(path, mediaPlayer);
-            mediaStream.setRtspPort(rtspPort);
-            mStreams.put(path, mediaStream);
+            log.info("registerStream(): Registering stream " + mediaStream.getPath() + " to " + path);
+            MediaPlayer mediaPlayer = null;
+            if (mediaStream.getSdp() != null) {
+                try {
+                    mediaPlayer = fuck(mediaStream.getSdp());
+                } catch (IOException e) {
+                    log.error("registerStream(): can't register stream", e);
+                }
+            } else {
+                int rtpPort = generateRtpPort();
+                int rtspPort = rtpPort + 1;
+                mediaPlayer = getMediaPlayer(rtpPort, mServerAddress, rtspPort, mediaStream.getPath());
+                mediaStream.setRtspPort(rtspPort);
+            }
+            if (mediaPlayer != null) {
+                mMediaPlayers.put(path, mediaPlayer);
+                mStreams.put(path, mediaStream);
+                result = true;
+            }
         }
+        return result;
     }
 
     @Override

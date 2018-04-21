@@ -19,6 +19,7 @@ public class MediaStream {
     private static final Logger log = LoggerFactory.getLogger(MediaStream.class);
     private String mPath;
     private int rtspPort;
+    private String mSdp;
 
     public MediaStream(String path) throws URISyntaxException {
         URI uri = new URI(path.replace("\\", "/"));
@@ -54,6 +55,15 @@ public class MediaStream {
         return "MediaStream{" +
                 "mPath='" + mPath + '\'' +
                 ", rtspPort=" + rtspPort +
+                ", mSdp='" + mSdp + "\'" +
                 '}';
+    }
+
+    public String getSdp() {
+        return mSdp;
+    }
+
+    public void setSdp(String sdp) {
+        this.mSdp = sdp;
     }
 }
