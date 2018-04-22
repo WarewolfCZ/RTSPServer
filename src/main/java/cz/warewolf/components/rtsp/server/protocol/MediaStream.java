@@ -1,5 +1,6 @@
 package cz.warewolf.components.rtsp.server.protocol;
 
+import cz.warewolf.components.net.ITCPClientConnection;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -17,13 +18,15 @@ import java.net.URISyntaxException;
  */
 public class MediaStream {
     private static final Logger log = LoggerFactory.getLogger(MediaStream.class);
-    private String mPath;
+    private String mSourcePath;
+    private String mTargetPath;
     private int rtspPort;
     private String mSdp;
+    private ITCPClientConnection originatingClient;
 
     public MediaStream(String path) throws URISyntaxException {
         URI uri = new URI(path.replace("\\", "/"));
-        mPath = path;
+        mSourcePath = path;
         log.debug("Stream location: " + uri);
         switch (uri.getScheme()) {
             case "file":
@@ -38,8 +41,16 @@ public class MediaStream {
         }
     }
 
-    public String getPath() {
-        return mPath;
+    public String getSourcePath() {
+        return mSourcePath;
+    }
+
+    public String getTargetPath() {
+        return mTargetPath;
+    }
+
+    public void setTargetPath(String path) {
+        this.mTargetPath = path;
     }
 
     public void setRtspPort(int rtspPort) {
@@ -53,7 +64,7 @@ public class MediaStream {
     @Override
     public String toString() {
         return "MediaStream{" +
-                "mPath='" + mPath + '\'' +
+                "mSourcePath='" + mSourcePath + '\'' +
                 ", rtspPort=" + rtspPort +
                 ", mSdp='" + mSdp + "\'" +
                 '}';
@@ -65,5 +76,13 @@ public class MediaStream {
 
     public void setSdp(String sdp) {
         this.mSdp = sdp;
+    }
+
+    public void setOriginatingClient(ITCPClientConnection originatingClient) {
+        this.originatingClient = originatingClient;
+    }
+
+    public ITCPClientConnection getOriginatingClient() {
+        return originatingClient;
     }
 }

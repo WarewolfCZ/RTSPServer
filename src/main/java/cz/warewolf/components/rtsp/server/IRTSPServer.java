@@ -40,4 +40,6 @@ public interface IRTSPServer {
     boolean registerStream(String url, MediaStream stream);
 
     void removeStream(String url);
+
+    List<String> getStreams();
 }

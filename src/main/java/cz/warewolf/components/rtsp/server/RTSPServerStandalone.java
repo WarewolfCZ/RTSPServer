@@ -26,7 +26,7 @@ public class RTSPServerStandalone {
         Thread.currentThread().setName("main-" + Thread.currentThread().getId());
 
         ConfiguratorInterface config = new Configurator();
-        log.info("run(): RTSPServer is starting");
+        log.info("run(): Standalone RTSPServer is starting");
         // Handler for uncaught exceptions.
         Thread.setDefaultUncaughtExceptionHandler((thread, e) -> {
             log.error("main(): Uncaught exception ", e);
@@ -75,6 +75,16 @@ public class RTSPServerStandalone {
                     @Override
                     public void onBeforeStop() {
 
+                    }
+
+                    @Override
+                    public void onStreamAdded(MediaStream stream) {
+                        log.warn("Stream added: " + stream.getTargetPath());
+                    }
+
+                    @Override
+                    public void onStreamRemoved(MediaStream stream) {
+                        log.warn("Stream removed: " + stream.getTargetPath());
                     }
                 });
         for (int i = 1; i < args.length; i += 2) {

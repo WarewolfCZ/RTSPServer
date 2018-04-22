@@ -1,10 +1,5 @@
 package cz.warewolf.components.rtsp.server;
 
-import cz.warewolf.components.net.ITCPClientConnection;
-import cz.warewolf.components.rtsp.server.protocol.MediaStream;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
 /**
  * <p>Title: RTSPClient</p>
  * <p>
@@ -15,61 +10,15 @@ import org.slf4j.LoggerFactory;
  * @author WarewolfCZ $Revision: $ $Id: $
  */
 public class RTSPClient {
-    private static final Logger log = LoggerFactory.getLogger(RTSPClient.class);
 
-    private final ITCPClientConnection mConnection;
     private String mSessionKey;
-    private String transport;
-    private String transportProtocol;
-    private boolean mMulticast;
-    private MediaStream mediaStream;
 
-    public RTSPClient(ITCPClientConnection connection, String session) {
-        mConnection = connection;
+    RTSPClient(String session) {
         mSessionKey = session;
-    }
-
-    public ITCPClientConnection getConnection() {
-        return mConnection;
     }
 
     public String getSessionKey() {
         return mSessionKey;
-    }
-
-    public void setTransport(String transport) {
-        this.transport = transport;
-        if (transport != null) {
-            String[] parts = transport.split(";");
-            if (parts.length > 0) {
-                transportProtocol = parts[0];
-                for (int i = 1; i < parts.length; i++) {
-                    String param = parts[i];
-                    log.info("transport parameter: " + param);
-                    if ("multicast".equalsIgnoreCase(param)) {
-                        mMulticast = true;
-                    } else if (param.startsWith("client_port=")) {
-                        String ports = param.substring("client_port=".length(), param.length());
-                        String[] portArr = ports.split("-");
-                        if (portArr.length > 0) {
-                            //mClientRtpPort = Integer.parseInt(portArr[0]);
-                        }
-                        if (portArr.length > 1) {
-                            //mClientRtcpPort = Integer.parseInt(portArr[1]);
-                        }
-                    }
-                }
-            }
-        }
-    }
-
-
-    public void setMediaStream(MediaStream mediaStream) {
-        this.mediaStream = mediaStream;
-    }
-
-    public MediaStream getMediaStream() {
-        return mediaStream;
     }
 
 }

@@ -1,6 +1,7 @@
 package cz.warewolf.components.rtsp.server;
 
 import cz.warewolf.components.net.ITCPClientConnection;
+import cz.warewolf.components.rtsp.server.protocol.MediaStream;
 
 /**
  * <p>Title: IRTSPServerCallback</p>
@@ -28,4 +29,8 @@ public interface IRTSPServerCallback {
      * Called before server has stopped
      */
     void onBeforeStop();
+
+    void onStreamAdded(MediaStream stream);
+
+    void onStreamRemoved(MediaStream stream);
 }
