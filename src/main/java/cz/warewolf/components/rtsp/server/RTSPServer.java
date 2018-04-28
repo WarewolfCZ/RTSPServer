@@ -3,7 +3,6 @@ package cz.warewolf.components.rtsp.server;
 import cz.warewolf.components.net.ITCPClientConnection;
 import cz.warewolf.components.net.ITCPServerCallback;
 import cz.warewolf.components.net.TCPServer;
-import cz.warewolf.components.rtsp.server.protocol.MediaStream;
 import cz.warewolf.components.rtsp.server.protocol.RTSPRequest;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;

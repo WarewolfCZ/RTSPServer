@@ -1,7 +1,5 @@
 package cz.warewolf.components.rtsp.server;
 
-import cz.warewolf.components.rtsp.server.protocol.MediaStream;
-
 import java.util.List;
 
 /**

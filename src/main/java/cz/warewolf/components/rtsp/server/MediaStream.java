@@ -1,4 +1,4 @@
-package cz.warewolf.components.rtsp.server.protocol;
+package cz.warewolf.components.rtsp.server;
 
 import cz.warewolf.components.net.ITCPClientConnection;
 import org.slf4j.Logger;
