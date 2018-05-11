@@ -36,7 +36,7 @@ import java.util.Objects;
  * @author WarewolfCZ $Revision: $ $Id: $
  */
 public class RTSPServer implements IRTSPServer {
-
+    //TODO: support TCP interleaving
     private static final Logger log = LoggerFactory.getLogger(RTSPServer.class);
     private final IRTSPServerCallback mCallback;
     private final int mBaseRtpPort;
@@ -273,23 +273,48 @@ public class RTSPServer implements IRTSPServer {
             @Override
             public void onDataReceived(ITCPClientConnection client, byte[] data, int dataLength) {
                 log.debug("onDataReceived(): RTSPServer received data: \n" + new String(data));
-                RTSPRequest request = RTSPRequest.parse(new String(data));
-                log.debug("onDataReceived(): RTSPServer parsed request: " + request);
+
                 try {
-                    URI url = new URI(request.getUrl());
-                    String response = "";
+                    String path = null;
+                    String response;
                     String content = "";
-                    String path = url.getPath();
-                    if (path.contains("/trackID=")) {
-                        path = path.substring(0, path.lastIndexOf("/trackID="));
-                    }
-                    log.debug("onDataReceived(): RTSPServer parsed url: " + url + ", path: " + url.getPath() + ", media path: " + path);
+                    URI url = null;
                     RTSPClient rtspClient = mClients.get(client);
                     String sessionId = rtspClient.getSessionKey();
-                    MediaStream mediaStream = mStreams.get(path);
-                    MediaPlayer mediaPlayer = mMediaPlayers.get(path);
+                    RTSPRequest request = rtspClient.getRequest();
 
-                    if (request.getType() != null) {
+                    if (request == null || request.isRequestComplete()) {
+                        request= new RTSPRequest();
+                    }
+                    request.parse(new String(data));
+                    rtspClient.setRequest(request);
+
+                    log.debug("onDataReceived(): RTSPServer parsed request: " + request);
+                    if (request.getUrl() != null) {
+                        url = new URI(request.getUrl());
+                        path = url.getPath();
+                        if (path != null && path.contains("/trackID=")) {
+                            path = path.substring(0, path.lastIndexOf("/trackID="));
+                        }
+                        if (path != null && path.contains("/streamid=")) {
+                            path = path.substring(0, path.lastIndexOf("/streamid="));
+                        }
+
+                        log.debug("onDataReceived(): RTSPServer parsed url: " + url + ", path: " + url.getPath() + ", media path: " + path);
+                    }
+
+                    MediaStream mediaStream = null;
+                    MediaPlayer mediaPlayer = null;
+                    if (path != null) {
+                        mediaStream = mStreams.get(path);
+                        mediaPlayer = mMediaPlayers.get(path);
+                    }
+
+                    if (!request.isRequestComplete()) {
+                        // wait for more data
+                        log.debug("onDataReceived(): incomplete request, waiting for more data");
+                        return;
+                    } else if (request.getType() != null) {
                         switch (request.getType()) {
 
                             case OPTIONS:
@@ -297,7 +322,7 @@ public class RTSPServer implements IRTSPServer {
                                     if (mediaStream.getOriginatingClient() == client) {
                                         mediaPlayer.play();
                                         response = "RTSP/1.0 200 OK\r\n" + "Cseq: " + request.getHeader("CSeq") + "\r\n" +
-                                                "Public: DESCRIBE, SETUP, TEARDOWN, PLAY, PAUSE, ANNOUNCE\r\n";
+                                                "Public: DESCRIBE, SETUP, TEARDOWN, RECORD, PLAY, PAUSE, ANNOUNCE\r\n";
                                     } else {
                                         //Send redirection headers and let VLC handle the streaming
                                         mediaPlayer.play();
@@ -317,25 +342,34 @@ public class RTSPServer implements IRTSPServer {
 
                                     }
                                 } else {
-                                    response = "RTSP/1.0 404 Not Found\r\n";
+
+                                    response = "RTSP/1.0 200 OK\r\n" + "Cseq: " + request.getHeader("CSeq") + "\r\n" +
+                                            "Public: SETUP, TEARDOWN, RECORD, ANNOUNCE\r\n";
+
+                                    //response = "RTSP/1.0 404 Not Found\r\n"
+                                    //        + "Cseq: " + request.getHeader("CSeq") + "\r\n";
                                 }
                                 break;
                             case ANNOUNCE:
                                 // Re-stream the incoming stream with VLC
                                 log.info("TCP Client " + client.getAddress() + " is announcing stream " + url);
                                 if (mediaStream == null) {
-                                    response = "RTSP/1.0 200 OK\r\n" + "Cseq: " + request.getHeader("CSeq") + "\r\n" +
-                                            "Session: " + sessionId + "\r\n";
+                                    if (url != null) {
+                                        response = "RTSP/1.0 200 OK\r\n" + "Cseq: " + request.getHeader("CSeq") + "\r\n" +
+                                                "Session: " + sessionId + "\r\n";
 
-
-                                    MediaStream newStream = new MediaStream(url.toString());
-                                    newStream.setSdp(request.getContent());
-                                    newStream.setOriginatingClient(client);
-                                    newStream.setTargetPath("rtsp://" + mServerAddress + ":" + mRtspPort + path);
-                                    if (registerStream(path, newStream)) {
-                                        mediaPlayer = mMediaPlayers.get(path);
-                                        mediaPlayer.play();
-                                        log.info("New stream address: " + newStream.getTargetPath());
+                                        MediaStream newStream = new MediaStream(url.toString());
+                                        newStream.setSdp(request.getContent());
+                                        newStream.setOriginatingClient(client);
+                                        newStream.setTargetPath("rtsp://" + mServerAddress + ":" + mRtspPort + path);
+                                        if (registerStream(path, newStream)) {
+                                            mediaPlayer = mMediaPlayers.get(path);
+                                            mediaPlayer.play();
+                                            log.info("New stream address: " + newStream.getTargetPath());
+                                        }
+                                    } else {
+                                        response = "RTSP/1.0 404 Not Found\r\n"
+                                                + "Cseq: " + request.getHeader("CSeq") + "\r\n";
                                     }
                                 } else {
                                     response = "RTSP/1.0 403 Forbidden\r\n";
@@ -343,7 +377,7 @@ public class RTSPServer implements IRTSPServer {
                                 }
                                 break;
                             case SETUP:
-                                if (mediaStream.getOriginatingClient() == client) {
+                                if (mediaStream != null && mediaStream.getOriginatingClient() == client) {
                                     response = "RTSP/1.0 200 OK\r\n" + "Cseq: " + request.getHeader("CSeq") + "\r\n" +
                                             "Transport: " + request.getHeader("Transport") +
                                             //";server_port=" + mediaStream.getRtspPort() + "-" + (mediaStream.getRtspPort() + 1) +
@@ -354,7 +388,7 @@ public class RTSPServer implements IRTSPServer {
                                 }
                                 break;
                             case RECORD:
-                                if (mediaStream.getOriginatingClient() == client) {
+                                if (mediaStream != null && mediaStream.getOriginatingClient() == client) {
                                     response = "RTSP/1.0 200 OK\r\n" +
                                             "Cseq: " + request.getHeader("CSeq") + "\r\n" +
                                             "Session: " + request.getHeader("Session") + "\r\n";
@@ -363,12 +397,16 @@ public class RTSPServer implements IRTSPServer {
                                 }
                                 break;
                             case TEARDOWN:
-                                if (mediaStream.getOriginatingClient() == client) {
-                                    response = "RTSP/1.0 200 OK\r\n" + "Cseq: " + request.getHeader("CSeq") + "\r\n";
-                                    mediaPlayer.stop();
-                                    removeStream(path);
+                                if (mediaStream != null) {
+                                    if (mediaStream.getOriginatingClient() == client) {
+                                        response = "RTSP/1.0 200 OK\r\n" + "Cseq: " + request.getHeader("CSeq") + "\r\n";
+                                        mediaPlayer.stop();
+                                        removeStream(path);
+                                    } else {
+                                        response = "RTSP/1.0 403 Forbidden\r\n";
+                                    }
                                 } else {
-                                    response = "RTSP/1.0 403 Forbidden\r\n";
+                                    response = "RTSP/1.0 404 Not Found\r\n";
                                 }
                                 break;
                             default:
@@ -377,6 +415,7 @@ public class RTSPServer implements IRTSPServer {
                         }
                     } else {
                         log.error("onDataReceived(): request type is null");
+                        response = "RTSP/1.0 404 Not Found\r\n";
                     }
                     response += wrapContent(content);
                     log.debug("onDataReceived(): RTSPServer response: \n" + response);
@@ -416,16 +455,20 @@ public class RTSPServer implements IRTSPServer {
             public void onClientDisconnected(ITCPClientConnection client) {
                 log.info("TCP Client " + client.getAddress() + " disconnected");
                 mClients.remove(client);
+                List<String> toRemove = new ArrayList<>();
                 for (MediaStream stream : mStreams.values()) {
                     if (client == stream.getOriginatingClient()) {
                         try {
                             URI url = new URI(stream.getSourcePath());
                             String path = url.getPath();
-                            removeStream(path);
+                            toRemove.add(path);
                         } catch (URISyntaxException e) {
                             log.warn("onClientDisconnected()", e);
                         }
                     }
+                }
+                for (String path : toRemove) {
+                    removeStream(path);
                 }
                 if (mCallback != null) {
                     mCallback.onClientDisconnected(client);

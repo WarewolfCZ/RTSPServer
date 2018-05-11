@@ -23,67 +23,87 @@ public class RTSPRequest {
     private String url;
     private String protocolVersion;
     private String content;
+    private boolean headersComplete;
+    private boolean contentComplete;
+    private boolean hasType;
+    private int contentLength;
+    private String incompleteLine;
 
     public RTSPRequest() {
         headers = new HashMap<>();
+        incompleteLine = "";
+        content = "";
     }
 
-    public static RTSPRequest parse(String input) {
-        RTSPRequest request = null;
+    public boolean parse(String input) {
         if (input != null) {
             try {
-                request = new RTSPRequest();
-                input = input.replaceAll("\r\n", "\n");
-                String[] lines = input.split("\n");
-                String[] lineParts = lines[0].split(" ");
-                // check if this is known request, for example OPTIONS, DESCRIBE, etc.
-                for (RTSPRequestType type : RTSPRequestType.values()) {
-                    if (type.name().equals(lineParts[0])) {
-                        request.setType(type);
-                        request.setUrl(lineParts[1].trim());
-                        request.setProtocolVersion(lineParts[2].trim());
-                        break;
-                    }
-                }
+                input = incompleteLine + input;
+                incompleteLine = "";
+                String[] lines = input.split("(?<=\n)");
 
-                int i = 1;
-                for (; i < lines.length; i++) {
-                    String line = lines[i];
-                    if (line.trim().length() == 0) {
-                        // end of headers
+                outer:
+                for (String line : lines) {
+                    if (!line.endsWith("\n")) {
+                        incompleteLine = line;
                         break;
                     }
-                    if (line.contains(":")) {
-                        String[] headerParts = line.split(":", 2);
-                        if (headerParts[0].trim().length() > 0) {
-                            request.addHeader(headerParts[0].trim(), headerParts[1].trim());
+                    if (!hasType) {
+                        try {
+                            String[] lineParts = line.split(" ");
+                            // check if this is known request, for example OPTIONS, DESCRIBE, etc.
+                            for (RTSPRequestType type : RTSPRequestType.values()) {
+                                if (type.name().equals(lineParts[0])) {
+                                    setType(type);
+                                    setUrl(lineParts[1].trim());
+                                    setProtocolVersion(lineParts[2].trim());
+                                    hasType = true;
+                                    continue outer;
+                                }
+                            }
+                        } catch (Exception e) {
+                            log.debug("Error parsing request type", e);
                         }
+                    } else if (!headersComplete) {
+                        if (line.trim().length() == 0) {
+                            // end of headers
+                            headersComplete = true;
+                            String contentLengthHeader = getHeader("Content-Length");
+                            if (contentLengthHeader != null) {
+                                try {
+                                    contentLength = Integer.valueOf(contentLengthHeader);
+                                } catch (Exception e) {
+                                    log.debug("Error parsing content length", e);
+                                }
+                            }
+                        } else if (line.contains(":")) {
+                            String[] headerParts = line.split(":", 2);
+                            if (headerParts[0].trim().length() > 0) {
+                                addHeader(headerParts[0].trim(), headerParts[1].trim());
+                            }
+                        }
+                    } else if (!contentComplete) {
+                        content += line;
+                    } else {
+                        break; // request is complete
                     }
                 }
-
-                StringBuilder content = new StringBuilder();
-                i++;
-                for (; i < lines.length; i++) {
-                    content.append(lines[i]).append("\n");
+                if (headersComplete &&
+                        ((content != null && contentLength <= content.length()) || (content == null && contentLength == 0))) {
+                    contentComplete = true;
                 }
-                request.setContent(content.toString());
-
             } catch (Exception e) {
                 log.error("parse()", e);
             }
         }
-        return request;
-    }
-
-    private void setContent(String content) {
-        this.content = content;
+        return hasType && headersComplete && contentComplete;
     }
 
     public String getContent() {
         return content;
     }
 
-    public void addHeader(String key, String value) {
+    private void addHeader(String key, String value) {
         if (key != null) {
             headers.put(key.toLowerCase(), value);
         }
@@ -97,15 +117,7 @@ public class RTSPRequest {
         }
     }
 
-    public Map<String, String> getHeaders() {
-        return headers;
-    }
-
-    public void setHeaders(Map<String, String> headers) {
-        this.headers = headers;
-    }
-
-    public void setType(RTSPRequestType type) {
+    private void setType(RTSPRequestType type) {
         this.type = type;
     }
 
@@ -114,7 +126,7 @@ public class RTSPRequest {
     }
 
 
-    public void setUrl(String url) {
+    private void setUrl(String url) {
         this.url = url;
     }
 
@@ -122,12 +134,16 @@ public class RTSPRequest {
         return url;
     }
 
-    public void setProtocolVersion(String protocolVersion) {
+    private void setProtocolVersion(String protocolVersion) {
         this.protocolVersion = protocolVersion;
     }
 
     public String getProtocolVersion() {
         return protocolVersion;
+    }
+
+    public boolean isRequestComplete() {
+        return hasType && headersComplete && contentComplete;
     }
 
     @Override
@@ -137,6 +153,11 @@ public class RTSPRequest {
                 ", type=" + type +
                 ", url='" + url + '\'' +
                 ", protocolVersion='" + protocolVersion + '\'' +
+                ", hasType=" + hasType +
+                ", headersComplete=" + headersComplete +
+                ", contentComplete=" + contentComplete +
+                ", contentLength=" + contentLength + " (" + (content == null ? "0" : content.length() + ")") +
+                ", incompleteLine='" + incompleteLine + '\'' +
                 ", content='" + content + '\'' +
                 '}';
     }

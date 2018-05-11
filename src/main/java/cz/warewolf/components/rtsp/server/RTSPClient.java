@@ -1,5 +1,7 @@
 package cz.warewolf.components.rtsp.server;
 
+import cz.warewolf.components.rtsp.server.protocol.RTSPRequest;
+
 /**
  * <p>Title: RTSPClient</p>
  * <p>
@@ -13,6 +15,8 @@ public class RTSPClient {
 
     private String mSessionKey;
 
+    private RTSPRequest  mRequest;
+
     RTSPClient(String session) {
         mSessionKey = session;
     }
@@ -21,4 +25,11 @@ public class RTSPClient {
         return mSessionKey;
     }
 
+    public RTSPRequest getRequest() {
+        return mRequest;
+    }
+
+    public void setRequest(RTSPRequest request) {
+        this.mRequest = request;
+    }
 }
