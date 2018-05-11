@@ -7,6 +7,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.net.URISyntaxException;
+import java.util.ArrayList;
+import java.util.List;
 
 /**
  * <p>Title: RTSPServerStandalone</p>
@@ -44,11 +46,13 @@ public class RTSPServerStandalone {
         } else {
             config.loadFromFile(BuildConfig.DEFAULT_CONFIG_FILE);
         }
+        List<Integer> mAudioPorts = new ArrayList<>();
 
         RTSPServer rtspServer = new RTSPServer(
                 config.getValue("address", BuildConfig.DEFAULT_SERVER_ADDRESS),
                 Integer.valueOf(config.getValue("rtsp.port", BuildConfig.DEFAULT_RTSP_PORT)),
                 Integer.valueOf(config.getValue("rtp.port", BuildConfig.DEFAULT_RTP_PORT)),
+                mAudioPorts,
                 new IRTSPServerCallback() {
 
                     @Override
@@ -95,7 +99,7 @@ public class RTSPServerStandalone {
                     !filePath.startsWith("rtp://")) {
                 filePath = "file://" + filePath;
             }
-            MediaStream stream = new MediaStream(filePath);
+            MediaStream stream = new MediaStream(filePath, mAudioPorts);
             rtspServer.registerStream(rtspPath, stream);
         }
         rtspServer.startServer();

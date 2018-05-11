@@ -28,6 +28,7 @@ public class RTSPRequest {
     private boolean hasType;
     private int contentLength;
     private String incompleteLine;
+    private int mTrackId;
 
     public RTSPRequest() {
         headers = new HashMap<>();
@@ -146,6 +147,14 @@ public class RTSPRequest {
         return hasType && headersComplete && contentComplete;
     }
 
+    public void setTrackId(int trackId) {
+        this.mTrackId = trackId;
+    }
+
+    public int getTrackId() {
+        return mTrackId;
+    }
+
     @Override
     public String toString() {
         return "RTSPRequest{" +
@@ -153,12 +162,13 @@ public class RTSPRequest {
                 ", type=" + type +
                 ", url='" + url + '\'' +
                 ", protocolVersion='" + protocolVersion + '\'' +
-                ", hasType=" + hasType +
+                ", content='" + content + '\'' +
                 ", headersComplete=" + headersComplete +
                 ", contentComplete=" + contentComplete +
-                ", contentLength=" + contentLength + " (" + (content == null ? "0" : content.length() + ")") +
+                ", hasType=" + hasType +
+                ", contentLength=" + contentLength +
                 ", incompleteLine='" + incompleteLine + '\'' +
-                ", content='" + content + '\'' +
+                ", mTrackId=" + mTrackId +
                 '}';
     }
 }

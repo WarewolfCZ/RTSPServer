@@ -244,13 +244,13 @@ public class RTSPServer implements IRTSPServer {
     };
 
     @SuppressWarnings("WeakerAccess")
-    public RTSPServer(String serverAddress, int rtspPort, int rtpPort, IRTSPServerCallback callback) {
+    public RTSPServer(String serverAddress, int rtspPort, int rtpPort, List<Integer> usedRtpPorts, IRTSPServerCallback callback) {
         boolean found = new NativeDiscovery().discover();
         log.debug("VLC library found using NativeDiscovery: " + found);
         log.debug("VLC version: " + LibVlc.INSTANCE.libvlc_get_version());
 
         mCallback = callback;
-        mRtpPorts = new ArrayList<>();
+        mRtpPorts = usedRtpPorts;
         mRtspPort = rtspPort;
         mBaseRtpPort = rtpPort;
         mClients = new HashMap<>();
@@ -284,7 +284,7 @@ public class RTSPServer implements IRTSPServer {
                     RTSPRequest request = rtspClient.getRequest();
 
                     if (request == null || request.isRequestComplete()) {
-                        request= new RTSPRequest();
+                        request = new RTSPRequest();
                     }
                     request.parse(new String(data));
                     rtspClient.setRequest(request);
@@ -293,13 +293,23 @@ public class RTSPServer implements IRTSPServer {
                     if (request.getUrl() != null) {
                         url = new URI(request.getUrl());
                         path = url.getPath();
+                        String trackIdStr = null;
                         if (path != null && path.contains("/trackID=")) {
+                            trackIdStr = path.substring(path.lastIndexOf("/trackID=") + "/trackID=".length(), path.length());
                             path = path.substring(0, path.lastIndexOf("/trackID="));
                         }
                         if (path != null && path.contains("/streamid=")) {
+                            trackIdStr = path.substring(path.lastIndexOf("/streamid=") + "/streamid=".length(), path.length());
                             path = path.substring(0, path.lastIndexOf("/streamid="));
                         }
 
+                        if (trackIdStr != null) {
+                            try {
+                                request.setTrackId(Integer.valueOf(trackIdStr));
+                            } catch (Exception e) {
+                                log.warn("onDataReceived(): can't parse track id");
+                            }
+                        }
                         log.debug("onDataReceived(): RTSPServer parsed url: " + url + ", path: " + url.getPath() + ", media path: " + path);
                     }
 
@@ -358,8 +368,10 @@ public class RTSPServer implements IRTSPServer {
                                         response = "RTSP/1.0 200 OK\r\n" + "Cseq: " + request.getHeader("CSeq") + "\r\n" +
                                                 "Session: " + sessionId + "\r\n";
 
-                                        MediaStream newStream = new MediaStream(url.toString());
-                                        newStream.setSdp(request.getContent());
+                                        MediaStream newStream = new MediaStream(url.toString(), mRtpPorts);
+                                        if (request.getContent() != null) {
+                                            newStream.setSdp(request.getContent());
+                                        }
                                         newStream.setOriginatingClient(client);
                                         newStream.setTargetPath("rtsp://" + mServerAddress + ":" + mRtspPort + path);
                                         if (registerStream(path, newStream)) {
@@ -380,7 +392,10 @@ public class RTSPServer implements IRTSPServer {
                                 if (mediaStream != null && mediaStream.getOriginatingClient() == client) {
                                     response = "RTSP/1.0 200 OK\r\n" + "Cseq: " + request.getHeader("CSeq") + "\r\n" +
                                             "Transport: " + request.getHeader("Transport") +
-                                            //";server_port=" + mediaStream.getRtspPort() + "-" + (mediaStream.getRtspPort() + 1) +
+                                            (request.getTrackId() == 1 ? //TODO: audio and video streams can be in reverse order
+                                                    ";server_port=" + mediaStream.getBaseAudioPort() + "-" + (mediaStream.getBaseAudioPort() + 1) :
+                                                    ";server_port=" + mediaStream.getBaseVideoPort() + "-" + (mediaStream.getBaseVideoPort() + 1)
+                                            ) +
                                             ";ssrc=1234ABCD\r\n" +
                                             "Session: " + sessionId + "\r\n";
                                 } else {
@@ -535,6 +550,7 @@ public class RTSPServer implements IRTSPServer {
         String options = ":sout=#rtp{port=" + rtpPort + ",sdp=rtsp://" + rtspAddress + ":" + rtspPort + "/stream.sdp}";
         log.debug("VLC Options: " + options);
         log.debug("SDP file: " + tempFile.getAbsolutePath());
+        log.debug("SDP file content: " + sdp);
         mediaPlayer.prepareMedia(tempFile.getAbsolutePath(), options);
 
         return mediaPlayer;
@@ -660,6 +676,7 @@ public class RTSPServer implements IRTSPServer {
                 mediaPlayer = getMediaPlayer(rtpPort, mServerAddress, rtspPort, mediaStream.getSourcePath());
             }
             mediaStream.setRtspPort(rtspPort);
+            mediaStream.setRtpPort(rtpPort);
             mediaStream.setTargetPath("rtsp://" + mServerAddress + ":" + mRtspPort + path);
             if (mediaPlayer != null) {
                 mMediaPlayers.put(path, mediaPlayer);
@@ -680,6 +697,14 @@ public class RTSPServer implements IRTSPServer {
             log.info("removeStream(): removing stream " + path + ", success: " + (mediaStream != null));
             if (mCallback != null) {
                 mCallback.onStreamRemoved(mediaStream);
+            }
+            if (mediaStream != null) {
+                mRtpPorts.remove(mediaStream.getRtpPort());
+                mRtpPorts.remove(Integer.valueOf(mediaStream.getRtpPort() + 1));
+                mRtpPorts.remove(mediaStream.getBaseAudioPort());
+                mRtpPorts.remove(Integer.valueOf(mediaStream.getBaseAudioPort() + 1));
+                mRtpPorts.remove(mediaStream.getBaseVideoPort());
+                mRtpPorts.remove(Integer.valueOf(mediaStream.getBaseVideoPort() + 1));
             }
             MediaPlayer mediaPlayer = mMediaPlayers.get(path);
             if (mediaPlayer != null) {
@@ -730,6 +755,8 @@ public class RTSPServer implements IRTSPServer {
                     result = port + 2;
                 }
             }
+            mRtpPorts.add(result);
+            mRtpPorts.add(result + 1);
         }
         log.debug("generateRtpPort(): result: " + result);
         return result;
