@@ -14,6 +14,7 @@ buildscript {
         maven {
             url 'https://plugins.gradle.org/m2/'
         }
+        maven { url mavenSeafile }
     }
     dependencies {
         //https://github.com/mfuerstenau/gradle-buildconfig-plugin
@@ -49,6 +50,7 @@ buildConfig {
 repositories {
     mavenLocal()
     mavenCentral()
+    maven { url mavenSeafile }
 }
 
 dependencies {
@@ -75,4 +77,10 @@ jar {
     // and adds them to the JAR itself. One can extend this task, to skip certain
     // files or particular types at will
     from { configurations.compile.collect { it.isDirectory() ? it : zipTree(it) } }
+}
+
+install {
+    repositories.mavenDeployer {
+        repository(url: mavenSeafile)
+    }
 }
