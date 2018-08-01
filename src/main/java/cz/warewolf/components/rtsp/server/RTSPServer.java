@@ -1,8 +1,8 @@
 package cz.warewolf.components.rtsp.server;
 
-import cz.warewolf.components.net.ITCPClientConnection;
-import cz.warewolf.components.net.ITCPServerCallback;
-import cz.warewolf.components.net.TCPServer;
+import cz.warewolf.components.net.server.tcp.ITCPClientConnection;
+import cz.warewolf.components.net.server.tcp.ITCPServerCallback;
+import cz.warewolf.components.net.server.tcp.TCPServer;
 import cz.warewolf.components.rtsp.server.protocol.RTSPRequest;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -271,7 +271,7 @@ public class RTSPServer implements IRTSPServer {
             }
 
             @Override
-            public void onDataReceived(ITCPClientConnection client, byte[] data, int dataLength) {
+            public void onDataReceived(ITCPClientConnection client, int dataType, byte[] data, int dataLength) {
                 log.debug("onDataReceived(): RTSPServer received data: \n" + new String(data));
 
                 try {
@@ -295,11 +295,11 @@ public class RTSPServer implements IRTSPServer {
                         path = url.getPath();
                         String trackIdStr = null;
                         if (path != null && path.contains("/trackID=")) {
-                            trackIdStr = path.substring(path.lastIndexOf("/trackID=") + "/trackID=".length(), path.length());
+                            trackIdStr = path.substring(path.lastIndexOf("/trackID=") + "/trackID=".length());
                             path = path.substring(0, path.lastIndexOf("/trackID="));
                         }
                         if (path != null && path.contains("/streamid=")) {
-                            trackIdStr = path.substring(path.lastIndexOf("/streamid=") + "/streamid=".length(), path.length());
+                            trackIdStr = path.substring(path.lastIndexOf("/streamid=") + "/streamid=".length());
                             path = path.substring(0, path.lastIndexOf("/streamid="));
                         }
 

@@ -14,7 +14,6 @@ buildscript {
         maven {
             url 'https://plugins.gradle.org/m2/'
         }
-        maven { url mavenSeafile }
     }
     dependencies {
         //https://github.com/mfuerstenau/gradle-buildconfig-plugin
@@ -50,17 +49,16 @@ buildConfig {
 repositories {
     mavenLocal()
     mavenCentral()
-    maven { url mavenSeafile }
 }
 
 dependencies {
     testCompile group: 'junit', name: 'junit', version: '4.12'
     // https://mvnrepository.com/artifact/org.slf4j/slf4j-simple
     compile group: 'org.slf4j', name: 'slf4j-simple', version: '1.7.25'
-    compile group: 'cz.warewolf.components.net', name: 'TCPServer', version: '1.0.0-SNAPSHOT'
+    compile group: 'cz.warewolf.components.net.server', name: 'TCPServer', version: '1.0.0-SNAPSHOT'
     compile group: 'cz.warewolf.components.net', name: 'UDPServer', version: '1.0.0-SNAPSHOT'
     compile group: 'cz.warewolf.components.net', name: 'UDPClient', version: '1.0.0-SNAPSHOT'
-    compile group: 'cz.warewolf.components', name: 'Common', version: '1.0.0-SNAPSHOT'
+    compile group: 'cz.warewolf.components.common', name: 'Common', version: '1.0.0-SNAPSHOT'
     compile group: 'cz.warewolf.components.config', name: 'Configurator', version: '1.0.0-SNAPSHOT'
     compile group: 'org.apache.commons', name: 'commons-configuration2', version: '2.2'
     compile 'uk.co.caprica:vlcj:3.10.1'
@@ -77,10 +75,4 @@ jar {
     // and adds them to the JAR itself. One can extend this task, to skip certain
     // files or particular types at will
     from { configurations.compile.collect { it.isDirectory() ? it : zipTree(it) } }
-}
-
-install {
-    repositories.mavenDeployer {
-        repository(url: mavenSeafile)
-    }
 }
